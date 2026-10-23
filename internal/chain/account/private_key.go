@@ -3,6 +3,9 @@ package account
 import (
 	"crypto/ecdsa"
 	"errors"
+	"math/big"
+
+	"github.com/dustinxie/ecc"
 )
 
 var (
@@ -11,7 +14,7 @@ var (
 
 type P256k1PrivateKey struct {
 	P256k1PublicKey
-	PrivateKey []byte `json:"privateKey"`
+	D *big.Int `json:"privateKey"`
 }
 
 func NewP256K1PrivateKey(prv *ecdsa.PrivateKey) (P256k1PrivateKey, error) {
@@ -20,13 +23,23 @@ func NewP256K1PrivateKey(prv *ecdsa.PrivateKey) (P256k1PrivateKey, error) {
 		return P256k1PrivateKey{}, ErrPub
 	}
 
-	prvKey, err := prv.ECDH()
+	prvBytes, err := prv.ECDH()
 	if err != nil {
 		return P256k1PrivateKey{}, ErrPrv
 	}
 
+	dByte := new(big.Int).SetBytes(prvBytes.Bytes())
+
 	return P256k1PrivateKey{
 		P256k1PublicKey: pub,
-		PrivateKey:      prvKey.Bytes(),
+		D:               dByte,
 	}, nil
+}
+
+func (p *P256k1PrivateKey) PrvKey() (*ecdsa.PrivateKey, error) {
+	return &ecdsa.PrivateKey{PublicKey: *p.PublicKey(), D: p.D}, nil
+}
+
+func (p *P256k1PrivateKey) PublicKey() *ecdsa.PublicKey {
+	return &ecdsa.PublicKey{Curve: ecc.P256k1(), X: p.X, Y: p.Y}
 }
